@@ -1,6 +1,3 @@
-# autonomous-robot-car
-Autonomous robot car using Arduino, Time of Flight (VL53L0X) and ultrasonic sensors for precise obstacle detection and smart navigation.
-
 # Autonomous Robot Car with TOF and Ultrasonic Sensors 🚗🤖
 
 This project is an **autonomous robot car** designed to detect obstacles and navigate without human intervention.  
