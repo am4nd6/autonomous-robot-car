@@ -1,263 +1,263 @@
-# Carrinho Robô Autônomo com VL53L0X e HC-SR04
+# Autonomous Robot Car with VL53L0X and HC-SR04
 
-Projeto de um carrinho robô capaz de se movimentar autonomamente e escolher caminhos com base na distância dos obstáculos. O sistema utiliza um sensor de distância a laser por tempo de voo (`VL53L0X`) montado em um servo para observar a frente e as laterais, além de um sensor ultrassônico (`HC-SR04`) voltado para trás.
+Project for a robot car capable of moving autonomously and choosing paths based on the distance to obstacles. The system uses a time-of-flight laser distance sensor (`VL53L0X`) mounted on a servo to observe the front and sides, as well as an ultrasonic sensor (`HC-SR04`) facing backward.
 
-Este guia foi escrito para que uma pessoa sem experiência prévia consiga identificar os componentes, montar as ligações, instalar o software, carregar o programa e realizar os primeiros testes com segurança.
+This guide was written so that someone without prior experience can identify the components, assemble the connections, install the software, upload the program, and perform the first tests safely.
 
-> **Importante:** o repositório contém o programa e a pinagem usada pelo código, mas não especifica o modelo exato do Arduino, do driver de motores, dos motores ou da bateria. Antes de ligar a alimentação, confira o manual do seu hardware e confirme a pinagem.
+> **Important:** the repository contains the program and the pinout used by the code, but does not specify the exact Arduino, motor driver, motor, or battery model. Before connecting the power supply, check your hardware manual and confirm the pinout.
 
-## Sumário
+## Table of Contents
 
-- [O que o projeto faz](#o-que-o-projeto-faz)
-- [Componentes necessários](#componentes-necessários)
-- [Como o sistema funciona](#como-o-sistema-funciona)
-- [Pinagem](#pinagem)
-- [Montagem e alimentação](#montagem-e-alimentação)
-- [Instalação do software](#instalação-do-software)
-- [Upload do programa](#upload-do-programa)
-- [Primeiro teste](#primeiro-teste)
-- [Operação e monitor serial](#operação-e-monitor-serial)
-- [Configurações ajustáveis](#configurações-ajustáveis)
-- [Solução de problemas](#solução-de-problemas)
-- [Limitações e melhorias](#limitações-e-melhorias)
-- [Estrutura do repositório](#estrutura-do-repositório)
-- [Licença](#licença)
+- [What the project does](#what-the-project-does)
+- [Required components](#required-components)
+- [How the system works](#how-the-system-works)
+- [Pinout](#pinout)
+- [Assembly and power](#assembly-and-power)
+- [Software installation](#software-installation)
+- [Uploading the program](#uploading-the-program)
+- [First test](#first-test)
+- [Operation and serial monitor](#operation-and-serial-monitor)
+- [Adjustable settings](#adjustable-settings)
+- [Troubleshooting](#troubleshooting)
+- [Limitations and improvements](#limitations-and-improvements)
+- [Repository structure](#repository-structure)
+- [License](#license)
 
-## O que o projeto faz
+## What the project does
 
-Quando ligado, o Arduino:
+When powered on, the Arduino:
 
-1. Inicializa o servo e o sensor `VL53L0X`.
-2. Mede as distâncias à frente, à direita, à esquerda e atrás.
-3. Escolhe a direção com maior espaço disponível quando o caminho da frente está bloqueado.
-4. Aciona o driver para mover os motores.
-5. Enquanto avança, verifica continuamente a frente e as regiões diagonais.
-6. Para ao detectar um obstáculo próximo e faz uma nova avaliação do ambiente.
+1. Initializes the servo and the `VL53L0X` sensor.
+2. Measures the distances to the front, right, left, and rear.
+3. Chooses the direction with the most available space when the front path is blocked.
+4. Activates the driver to move the motors.
+5. While moving forward, continuously checks the front and diagonal areas.
+6. Stops when it detects a nearby obstacle and reassesses the environment.
 
-As distâncias usadas pelo programa são expressas em centímetros. O `VL53L0X` mede em milímetros e o código converte o resultado para centímetros; o `HC-SR04` já é convertido diretamente para centímetros.
+The distances used by the program are expressed in centimeters. The `VL53L0X` measures in millimeters and the code converts the result to centimeters; the `HC-SR04` is converted directly to centimeters.
 
-## Componentes necessários
+## Required components
 
-- Uma placa Arduino compatível com o sketch, como Arduino Uno ou Nano.
-- Um sensor de tempo de voo `VL53L0X` compatível com a biblioteca Adafruit.
-- Um sensor ultrassônico `HC-SR04`.
-- Um servo motor para girar o `VL53L0X`.
-- Um driver de motores de dois canais. O modelo não é definido neste projeto.
-- Dois motores DC com rodas.
-- Chassi, roda livre/castor, parafusos e suportes.
-- Bateria ou fonte adequada para os motores.
-- Cabos jumper e, se necessário, protoboard.
-- Cabo USB para programar o Arduino.
+- An Arduino board compatible with the sketch, such as an Arduino Uno or Nano.
+- A `VL53L0X` time-of-flight sensor compatible with the Adafruit library.
+- An `HC-SR04` ultrasonic sensor.
+- A servo motor to rotate the `VL53L0X`.
+- A two-channel motor driver. The model is not defined by this project.
+- Two DC motors with wheels.
+- Chassis, free wheel/castor, screws, and mounts.
+- A battery or power supply suitable for the motors.
+- Jumper wires and, if necessary, a breadboard.
+- A USB cable for programming the Arduino.
 
-## Como o sistema funciona
+## How the system works
 
-### Sensor VL53L0X
+### VL53L0X sensor
 
-O `VL53L0X` emite luz infravermelha e calcula o tempo necessário para o sinal retornar. Ele é instalado sobre um servo e apontado para diferentes ângulos:
+The `VL53L0X` emits infrared light and calculates the time required for the signal to return. It is installed on a servo and pointed at different angles:
 
-| Direcao | Angulo aproximado do servo |
+| Direction | Approximate servo angle |
 |---|---:|
-| Direita | 10 graus |
-| Direita 2 | 45 graus |
-| Frente | 85 graus |
-| Esquerda 2 | 115 graus |
-| Esquerda | 150 graus |
+| Right | 10 degrees |
+| Right 2 | 45 degrees |
+| Front | 85 degrees |
+| Left 2 | 115 degrees |
+| Left | 150 degrees |
 
-Os valores de `DIREITA2` e `ESQUERDA2` são usados durante o deslocamento. A leitura completa das direções usa frente, direita, esquerda e traseira.
+The `DIREITA2` and `ESQUERDA2` values are used while moving. The complete directional reading uses front, right, left, and rear.
 
-### Sensor HC-SR04
+### HC-SR04 sensor
 
-O `HC-SR04` fica voltado para trás. O Arduino envia um pulso pelo pino `TRIG`, mede o tempo de retorno no pino `ECHO` e calcula a distância. O sensor precisa estar corretamente alinhado e não deve receber tensão incompatível com a placa.
+The `HC-SR04` faces backward. The Arduino sends a pulse through the `TRIG` pin, measures the return time on the `ECHO` pin, and calculates the distance. The sensor must be correctly aligned and must not receive a voltage incompatible with the board.
 
-### Decisão de movimento
+### Movement decision
 
-- `distancia_minima = 30`: abaixo de 30 cm, a direção é considerada perigosa.
-- `distancia_para_andar = 50`: uma direção é considerada com espaço suficiente a partir de 50 cm.
-- Se a frente estiver livre, o carrinho segue em frente.
-- Se a frente estiver bloqueada, o programa compara os lados e a traseira.
-- Se houver empate ou uma situação não prevista, a direção escolhida pode depender dos valores lidos e do último movimento.
+- `distancia_minima = 30`: below 30 cm, the direction is considered dangerous.
+- `distancia_para_andar = 50`: a direction is considered to have enough space from 50 cm onward.
+- If the front is clear, the car moves forward.
+- If the front is blocked, the program compares the sides and rear.
+- In a tie or an unforeseen situation, the chosen direction may depend on the values read and the last movement.
 
-## Pinagem
+## Pinout
 
-As ligações abaixo são as utilizadas pelo arquivo `Code/versao4_carrinho.ino`.
+The connections below are those used by `Code/versao4_carrinho.ino`.
 
-### Driver de motores
+### Motor driver
 
-| Arduino | Nome no código | Função |
+| Arduino | Name in code | Function |
 |---:|---|---|
-| D3 | `entrada1` | Controle do motor/canal 1, sentido frente |
-| D5 | `entrada2` | Controle do motor/canal 1, sentido ré |
-| D6 | `entrada3` | Controle do motor/canal 2, sentido ré |
-| D11 | `entrada4` | Controle do motor/canal 2, sentido frente |
+| D3 | `entrada1` | Motor/channel 1 control, forward direction |
+| D5 | `entrada2` | Motor/channel 1 control, reverse direction |
+| D6 | `entrada3` | Motor/channel 2 control, reverse direction |
+| D11 | `entrada4` | Motor/channel 2 control, forward direction |
 
-Os pinos D3, D5, D6 e D11 também permitem PWM nas placas Uno/Nano, o que possibilita controlar a velocidade. A correspondência exata entre entradas do driver e motores depende do modelo do driver.
+Pins D3, D5, D6, and D11 also support PWM on Uno/Nano boards, allowing speed control. The exact mapping between driver inputs and motors depends on the driver model.
 
-### Sensores e servo
+### Sensors and servo
 
-| Arduino | Componente | Pino/sinal |
+| Arduino | Component | Pin/signal |
 |---:|---|---|
-| D2 | HC-SR04 | `TRIG` traseiro |
-| D7 | HC-SR04 | `ECHO` traseiro |
-| D9 | Servo | Sinal de controle |
-| D4 | LED auxiliar | Reservado no código |
-| `SDA`/`SCL` | VL53L0X | Comunicação I2C |
+| D2 | HC-SR04 | Rear `TRIG` |
+| D7 | HC-SR04 | Rear `ECHO` |
+| D9 | Servo | Control signal |
+| D4 | Auxiliary LED | Reserved in code |
+| `SDA`/`SCL` | VL53L0X | I2C communication |
 
-No Arduino Uno, `SDA` é A4 e `SCL` é A5. No Arduino Nano, normalmente também são A4 e A5. Em outras placas, consulte a documentação da placa. Conecte também `VCC` e `GND` dos módulos de acordo com a tensão suportada por eles.
+On the Arduino Uno, `SDA` is A4 and `SCL` is A5. On the Arduino Nano, they are also normally A4 and A5. On other boards, consult the board documentation. Also connect `VCC` and `GND` on the modules according to the voltage they support.
 
-## Montagem e alimentação
+## Assembly and power
 
-1. Fixe os motores, rodas, roda livre e placa no chassi.
-2. Instale o servo na frente e fixe o `VL53L0X` sobre o braço do servo.
-3. Instale o `HC-SR04` na traseira, apontado para a direção oposta à frente.
-4. Conecte os quatro sinais de controle do driver aos pinos indicados.
-5. Conecte o servo ao D9 e o `VL53L0X` ao barramento I2C.
-6. Conecte `TRIG` ao D2 e `ECHO` ao D7.
-7. Conecte o GND do Arduino, do driver e dos sensores em comum.
-8. Alimente os motores pela entrada própria do driver, usando uma bateria compatível com os motores.
+1. Secure the motors, wheels, free wheel, and board to the chassis.
+2. Install the servo at the front and secure the `VL53L0X` to the servo arm.
+3. Install the `HC-SR04` at the rear, facing away from the front.
+4. Connect the driver's four control signals to the indicated pins.
+5. Connect the servo to D9 and the `VL53L0X` to the I2C bus.
+6. Connect `TRIG` to D2 and `ECHO` to D7.
+7. Connect the Arduino, driver, and sensor GNDs together.
+8. Power the motors through the driver's dedicated input, using a battery compatible with the motors.
 
-### Cuidados obrigatórios
+### Mandatory precautions
 
-- Não alimente os motores pelos pinos do Arduino.
-- Não conecte a bateria dos motores diretamente a um pino de sinal.
-- Confirme a tensão do `VL53L0X`, do servo e do `HC-SR04` antes de conectar o VCC.
-- Não faça alterações na fiação com a bateria conectada.
-- Em testes iniciais, mantenha as rodas suspensas ou use um suporte que impeça o carrinho de sair andando.
-- Use uma área aberta, sem pessoas, animais, escadas ou objetos frágeis.
+- Do not power the motors through the Arduino pins.
+- Do not connect the motor battery directly to a signal pin.
+- Confirm the voltage of the `VL53L0X`, servo, and `HC-SR04` before connecting VCC.
+- Do not change the wiring while the battery is connected.
+- During initial tests, keep the wheels suspended or use a support that prevents the car from moving away.
+- Use an open area free of people, animals, stairs, or fragile objects.
 
-## Instalação do software
+## Software installation
 
-### 1. Instale o Arduino IDE
+### 1. Install the Arduino IDE
 
-Baixe o Arduino IDE no site oficial: [arduino.cc/en/software](https://www.arduino.cc/en/software). Instale a versão adequada ao seu sistema operacional.
+Download the Arduino IDE from the official website: [arduino.cc/en/software](https://www.arduino.cc/en/software). Install the version appropriate for your operating system.
 
-### 2. Baixe o projeto
+### 2. Download the project
 
-No terminal, execute:
+In the terminal, run:
 
 ```bash
 git clone https://github.com/am4nd6/autonomous-robot-car.git
 cd autonomous-robot-car
 ```
 
-Também é possível baixar o projeto como arquivo ZIP pelo botão **Code > Download ZIP** no GitHub.
+You can also download the project as a ZIP file using the **Code > Download ZIP** button on GitHub.
 
-### 3. Instale a biblioteca
+### 3. Install the library
 
-O sketch usa:
+The sketch uses:
 
-- `Servo.h`, normalmente incluída no Arduino IDE.
-- `Adafruit_VL53L0X`, disponível no [repositório oficial da Adafruit](https://github.com/adafruit/Adafruit_VL53L0X).
+- `Servo.h`, normally included with the Arduino IDE.
+- `Adafruit_VL53L0X`, available in the [official Adafruit repository](https://github.com/adafruit/Adafruit_VL53L0X).
 
-Para instalar a biblioteca no IDE:
+To install the library in the IDE:
 
-1. Abra **Sketch > Include Library > Manage Libraries**.
-2. Pesquise por **Adafruit VL53L0X**.
-3. Instale a biblioteca publicada pela Adafruit.
-4. Aceite as dependências solicitadas pelo gerenciador.
+1. Open **Sketch > Include Library > Manage Libraries**.
+2. Search for **Adafruit VL53L0X**.
+3. Install the library published by Adafruit.
+4. Accept the dependencies requested by the manager.
 
-O projeto **não usa a biblioteca NewPing**, apesar de versões anteriores do README mencionarem esse nome.
+The project **does not use the NewPing library**, although previous versions of the README mentioned that name.
 
-## Upload do programa
+## Uploading the program
 
-1. Abra `Code/versao4_carrinho.ino` no Arduino IDE.
-2. Conecte o Arduino ao computador pelo cabo USB.
-3. Em **Tools > Board**, selecione o modelo correto da sua placa.
-4. Em **Tools > Port**, selecione a porta serial correspondente.
-5. Clique em **Verify** para compilar.
-6. Se a compilação terminar sem erros, clique em **Upload**.
-7. Aguarde a mensagem de conclusão.
-8. Desconecte o USB somente se a alimentação dos motores estiver instalada de forma segura.
+1. Open `Code/versao4_carrinho.ino` in the Arduino IDE.
+2. Connect the Arduino to the computer using the USB cable.
+3. Under **Tools > Board**, select the correct board model.
+4. Under **Tools > Port**, select the corresponding serial port.
+5. Click **Verify** to compile.
+6. If compilation finishes without errors, click **Upload**.
+7. Wait for the completion message.
+8. Disconnect the USB cable only if the motor power supply has been installed safely.
 
-O Arduino IDE pode pedir confirmação para instalar dependências da biblioteca. Isso é esperado. Se a placa não aparecer, instale o driver USB correspondente ao conversor da placa e troque o cabo USB.
+The Arduino IDE may ask for confirmation to install library dependencies. This is expected. If the board does not appear, install the USB driver corresponding to the board's converter and replace the USB cable.
 
-## Primeiro teste
+## First test
 
-Faça os testes nesta ordem:
+Perform the tests in this order:
 
-1. Com as rodas suspensas, ligue somente o Arduino e confirme que o programa inicia.
-2. Abra o **Serial Monitor** em `9600 baud`.
-3. Observe a mensagem `INICIANDO...`.
-4. Verifique se o servo centraliza aproximadamente em 85 graus.
-5. Confirme se o sensor VL53L0X inicializa. Se falhar, o LED interno piscará e o programa ficará parado.
-6. Com a alimentação dos motores desligada, aproxime objetos dos sensores e observe as mensagens de diagnóstico.
-7. Se necessário, descomente `testarmotores();` no `setup()` para testar os motores. Faça isso somente com o carrinho imobilizado.
-8. Ligue os motores em baixa velocidade e teste em uma superfície plana e livre.
+1. With the wheels suspended, power only the Arduino and confirm that the program starts.
+2. Open the **Serial Monitor** at `9600 baud`.
+3. Look for the message `INICIANDO...`.
+4. Check that the servo centers at approximately 85 degrees.
+5. Confirm that the VL53L0X sensor initializes. If it fails, the internal LED will blink and the program will stop.
+6. With motor power off, bring objects near the sensors and observe the diagnostic messages.
+7. If necessary, uncomment `testarmotores();` in `setup()` to test the motors. Do this only with the car immobilized.
+8. Turn the motors on at low speed and test on a flat, clear surface.
 
-## Operação e monitor serial
+## Operation and serial monitor
 
-Abra o Monitor Serial em **9600 baud**. O programa pode mostrar mensagens como:
+Open the Serial Monitor at **9600 baud**. The program may display messages such as:
 
 - `INICIANDO...`
 - `Failed to boot VL53L0X`
-- `Distância da frente`
-- `Distância direita`
-- `Distância esquerda`
-- `Distância de trás`
-- `Indo para frente`
-- `Indo para trás`
-- `Indo para direita`
-- `Indo para esquerda`
+- `Front distance`
+- `Right distance`
+- `Left distance`
+- `Rear distance`
+- `Moving forward`
+- `Moving backward`
+- `Moving right`
+- `Moving left`
 
-O LED interno alterna aproximadamente a cada 200 ms enquanto o programa está executando. A mensagem `ping` também é enviada nesse intervalo.
+The internal LED toggles approximately every 200 ms while the program is running. The `ping` message is also sent at that interval.
 
-## Configurações ajustáveis
+## Adjustable settings
 
-Os valores podem ser alterados no início do sketch:
+The values can be changed at the beginning of the sketch:
 
-| Variavel | Valor atual | Efeito |
+| Variable | Current value | Effect |
 |---|---:|---|
-| `velocidade` | 60.5 | Velocidade nominal de um lado |
-| `velocidade2` | 58 | Velocidade nominal do outro lado |
-| `velocidade_tras` | 80 | Velocidade de ré |
-| `distancia_minima` | 30 cm | Limite para detectar obstáculo |
-| `distancia_para_andar` | 50 cm | Espaço considerado suficiente |
-| `velocidade_arranque` | 180 | Força inicial dos motores |
-| `TEMPO_MOVIMENTO_SERVO` | 200 ms | Tempo de espera após mover o servo |
-| `SERVO_CENTRO` | 85 graus | Posição central do sensor |
+| `velocidade` | 60.5 | Nominal speed of one side |
+| `velocidade2` | 58 | Nominal speed of the other side |
+| `velocidade_tras` | 80 | Reverse speed |
+| `distancia_minima` | 30 cm | Obstacle-detection threshold |
+| `distancia_para_andar` | 50 cm | Space considered sufficient |
+| `velocidade_arranque` | 180 | Initial motor power |
+| `TEMPO_MOVIMENTO_SERVO` | 200 ms | Wait time after moving the servo |
+| `SERVO_CENTRO` | 85 degrees | Sensor center position |
 
-Ajuste primeiro as velocidades. Valores altos podem fazer o carrinho arrancar bruscamente. Se o carrinho andar torto, ajuste `velocidade` e `velocidade2` gradualmente. Se o servo atingir o fim mecânico, reduza os ângulos de varredura.
+Adjust the speeds first. High values can make the car start abruptly. If the car veers, adjust `velocidade` and `velocidade2` gradually. If the servo reaches its mechanical limit, reduce the scanning angles.
 
-## Solução de problemas
+## Troubleshooting
 
-### O programa não compila
+### The program does not compile
 
-Confirme se a biblioteca **Adafruit VL53L0X** está instalada e se o arquivo aberto é `versao4_carrinho.ino`. A biblioteca `Servo` deve estar disponível na instalação do Arduino IDE.
+Confirm that the **Adafruit VL53L0X** library is installed and that the open file is `versao4_carrinho.ino`. The `Servo` library should be available in the Arduino IDE installation.
 
-### O VL53L0X não inicializa
+### The VL53L0X does not initialize
 
-Desligue a alimentação, revise VCC, GND, SDA e SCL e confirme a tensão do módulo. Verifique também se o sensor não está frouxo sobre o servo. Durante a falha, o código pisca o LED interno e permanece em espera.
+Turn off the power, check VCC, GND, SDA, and SCL, and confirm the module voltage. Also check that the sensor is not loose on the servo. During the failure, the code blinks the internal LED and remains waiting.
 
-### O servo não se move ou vibra
+### The servo does not move or vibrates
 
-Confira o sinal no D9, a alimentação e o GND comum. Servos podem exigir mais corrente do que a porta USB consegue fornecer; use uma alimentação externa adequada, mantendo o GND compartilhado.
+Check the signal on D9, the power supply, and the common GND. Servos may require more current than the USB port can provide; use a suitable external power supply while keeping the GND shared.
 
-### Os motores não giram
+### The motors do not turn
 
-Verifique a alimentação separada do driver, o GND comum, as conexões D3/D5/D6/D11 e o estado de habilitação do driver. Alguns drivers possuem pinos `ENA` e `ENB` ou jumpers que precisam ser configurados.
+Check the driver's separate power supply, common GND, D3/D5/D6/D11 connections, and driver enable state. Some drivers have `ENA` and `ENB` pins or jumpers that must be configured.
 
-### O carrinho anda para trás ou vira para o lado errado
+### The car moves backward or turns the wrong way
 
-Desligue a bateria e inverta os fios do motor afetado ou adapte a lógica das funções de movimento. Nunca altere a fiação com o circuito energizado.
+Turn off the battery and reverse the wires of the affected motor or adapt the movement-function logic. Never change the wiring while the circuit is powered.
 
-### O carrinho anda torto
+### The car veers
 
-Isso pode ocorrer por diferenças entre motores, rodas ou atrito. Ajuste `velocidade` e `velocidade2` em pequenos passos.
+This can result from differences between motors, wheels, or friction. Adjust `velocidade` and `velocidade2` in small increments.
 
-### As distâncias parecem erradas
+### The distances seem incorrect
 
-Limpe a janela do VL53L0X, confira o alinhamento dos sensores e evite superfícies muito inclinadas, transparentes ou absorventes. O `HC-SR04` deve estar livre de obstáculos muito próximos e de vibração excessiva.
+Clean the VL53L0X window, check sensor alignment, and avoid very steep, transparent, or absorbent surfaces. The `HC-SR04` should be free of very nearby obstacles and excessive vibration.
 
-### O carrinho não para
+### The car does not stop
 
-Desligue imediatamente a alimentação dos motores. Depois verifique a pinagem, a alimentação do driver e a lógica de acionamento. Faça novos testes com as rodas suspensas.
+Immediately turn off motor power. Then check the pinout, driver power supply, and activation logic. Perform new tests with the wheels suspended.
 
-## Limitações e melhorias
+## Limitations and improvements
 
-Este é um projeto experimental. O código não possui encoders para medir a rotação das rodas, nem controle PID, comunicação remota ou mapa do ambiente. O tempo de movimento é baseado em `delay()`, portanto a precisão das curvas depende da bateria, do piso, dos motores e do peso do chassi.
+This is an experimental project. The code has no encoders for measuring wheel rotation, PID control, remote communication, or environment mapping. Movement time is based on `delay()`, so turning accuracy depends on the battery, floor, motors, and chassis weight.
 
-Possíveis melhorias incluem adicionar encoders, substituir delays por temporização com `millis()`, filtrar leituras inválidas, usar um driver específico documentado, incluir controle de velocidade mais preciso e criar testes automatizados para a lógica de decisão.
+Possible improvements include adding encoders, replacing delays with `millis()`-based timing, filtering invalid readings, using a documented specific driver, adding more precise speed control, and creating automated tests for the decision logic.
 
-## Estrutura do repositório
+## Repository structure
 
 ```text
 autonomous-robot-car/
@@ -267,12 +267,12 @@ autonomous-robot-car/
     `-- versao4_carrinho.ino
 ```
 
-## Licença
+## License
 
-Este projeto está distribuído sob a [licença MIT](LICENSE). As bibliotecas de terceiros continuam sujeitas às suas próprias licenças.
+This project is distributed under the [MIT license](LICENSE). Third-party libraries remain subject to their own licenses.
 
-## Referências
+## References
 
 - [Arduino IDE](https://www.arduino.cc/en/software)
 - [Adafruit VL53L0X](https://github.com/adafruit/Adafruit_VL53L0X)
-- [Documentação do Arduino](https://docs.arduino.cc/)
+- [Arduino documentation](https://docs.arduino.cc/)
